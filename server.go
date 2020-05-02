@@ -11,6 +11,7 @@ import (
 
 	"github.com/360EntSecGroup-Skylar/excelize/v2"
 	"github.com/gin-gonic/gin"
+	cors "github.com/rs/cors/wrapper/gin"
 )
 
 // Department Department
@@ -45,6 +46,7 @@ type FacultyComparionReportRequestBody struct {
 
 func main() {
 	r := gin.Default()
+	r.Use(cors.Default())
 	r.GET("/ping", healthStatusPing)
 	r.POST("/report/faculty/feedback/comparison", getFacultyFeedbackComparisonReport)
 	var port string
