@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net/http"
 	"os"
@@ -45,7 +46,7 @@ type FacultyComparionReportRequestBody struct {
 func main() {
 	r := gin.Default()
 	r.GET("/ping", healthStatusPing)
-	r.GET("/report/faculty/feedback/comparison", getFacultyFeedbackComparisonReport)
+	r.POST("/report/faculty/feedback/comparison", getFacultyFeedbackComparisonReport)
 	var port string
 	if port = os.Getenv("PORT"); len(port) == 0 {
 		port = "8080"
@@ -61,7 +62,9 @@ func healthStatusPing(c *gin.Context) {
 
 func getFacultyFeedbackComparisonReport(c *gin.Context) {
 
-	facultyComparionReportRequestBodyJSON := []byte(`{"meta":{"department":{"code":"COMP","name":"Computer Engineering"},"class":{"code":"SY","name":"Second Year"}},"data":[{"name":"Prof. V. S. More","feedback":88},{"name":"Prof. Tinku Sharma","feedback":72},{"name":"Mrs. Ileana Mukherjee","feedback":90},{"name":"Prof. Monu Mingle","feedback":88},{"name":"Ms. Hana More","feedback":30}]}`)
+	facultyComparionReportRequestBodyJSON, _ := ioutil.ReadAll(c.Request.Body)
+
+	// []byte(`{"meta":{"department":{"code":"COMP","name":"Computer Engineering"},"class":{"code":"SY","name":"Second Year"}},"data":[{"name":"Prof. V. S. More","feedback":88},{"name":"Prof. Tinku Sharma","feedback":72},{"name":"Mrs. Ileana Mukherjee","feedback":90},{"name":"Prof. Monu Mingle","feedback":88},{"name":"Ms. Hana More","feedback":30}]}`)
 
 	var facultyComparionReportRequest FacultyComparionReportRequestBody
 	err := json.Unmarshal(facultyComparionReportRequestBodyJSON, &facultyComparionReportRequest)
