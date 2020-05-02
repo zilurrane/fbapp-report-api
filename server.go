@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"net/http"
+	"os"
 
 	"github.com/360EntSecGroup-Skylar/excelize/v2"
 	"github.com/gin-gonic/gin"
@@ -13,7 +14,11 @@ func main() {
 	r := gin.Default()
 	r.GET("/ping", healthStatusPing)
 	r.GET("/report/faculty/feedback/comparison", getFacultyFeedbackComparisonReport)
-	r.Run(":9001")
+	var port string
+	if port = os.Getenv("PORT"); len(port) == 0 {
+		port = "8080"
+	}
+	r.Run(":" + port)
 }
 
 func healthStatusPing(c *gin.Context) {

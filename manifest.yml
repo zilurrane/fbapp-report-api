@@ -1,0 +1,6 @@
+---
+applications:
+- name: fbapp-report-api
+  buildpacks:
+    - go_buildpack
+  memory: 64M
