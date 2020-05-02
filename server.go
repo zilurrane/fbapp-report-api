@@ -46,7 +46,15 @@ type FacultyComparionReportRequestBody struct {
 
 func main() {
 	r := gin.Default()
-	r.Use(cors.Default())
+
+	handler := cors.New(cors.Options{
+		AllowedOrigins:   []string{"*"},
+		AllowCredentials: true,
+		AllowedHeaders:   []string{"*"},
+		ExposedHeaders:   []string{"Content-Disposition"},
+	})
+
+	r.Use(handler)
 	r.GET("/ping", healthStatusPing)
 	r.POST("/report/faculty/feedback/comparison", getFacultyFeedbackComparisonReport)
 	var port string
