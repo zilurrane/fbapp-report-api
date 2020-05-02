@@ -2,13 +2,45 @@ package main
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
+	"log"
 	"net/http"
 	"os"
 
 	"github.com/360EntSecGroup-Skylar/excelize/v2"
 	"github.com/gin-gonic/gin"
 )
+
+// Department Department
+type Department struct {
+	Code string
+	Name string
+}
+
+// Class Class
+type Class struct {
+	Code string
+	Name string
+}
+
+// Meta Meta
+type Meta struct {
+	Class      Class
+	Department Department
+}
+
+// FacultyFeedback FacultyFeedback
+type FacultyFeedback struct {
+	Name     string
+	Feedback int8
+}
+
+// FacultyComparionReportRequestBody FacultyComparionReportRequestBody
+type FacultyComparionReportRequestBody struct {
+	Meta Meta
+	Data []FacultyFeedback
+}
 
 func main() {
 	r := gin.Default()
@@ -28,6 +60,15 @@ func healthStatusPing(c *gin.Context) {
 }
 
 func getFacultyFeedbackComparisonReport(c *gin.Context) {
+
+	facultyComparionReportRequestBodyJSON := []byte(`{"meta":{"department":{"code":"COMP","name":"Computer Engineering"},"class":{"code":"SY","name":"Second Year"}},"data":[{"name":"Prof. V. S. More","feedback":88},{"name":"Prof. Tinku Sharma","feedback":72},{"name":"Mrs. Ileana Mukherjee","feedback":90},{"name":"Prof. Monu Mingle","feedback":88},{"name":"Ms. Hana More","feedback":30}]}`)
+
+	var facultyComparionReportRequest FacultyComparionReportRequestBody
+	err := json.Unmarshal(facultyComparionReportRequestBodyJSON, &facultyComparionReportRequest)
+	if err != nil {
+		log.Println(err)
+	}
+
 	sheetName := "FacultyFeedbackComparison"
 	f := excelize.NewFile()
 
@@ -58,27 +99,41 @@ func getFacultyFeedbackComparisonReport(c *gin.Context) {
 	f.SetCellStyle(sheetName, "F4", "F4", metaInfoStyle)
 	f.SetCellValue(sheetName, "F4", "Class")
 
-	f.SetCellValue(sheetName, "C4", "Computer Engineering")
-	f.SetCellValue(sheetName, "G4", "Second Year")
+	f.SetCellValue(sheetName, "C4", facultyComparionReportRequest.Meta.Department.Name)
+	f.SetCellValue(sheetName, "G4", facultyComparionReportRequest.Meta.Class.Name)
 
-	categories := map[string]string{"B7": "Prof. V. S. More", "B8": "Prof. Mangesh Gosavi", "C6": "Feedback"}
-	values := map[string]int{"C7": 63, "C8": 89}
+	f.SetCellValue(sheetName, "C6", "Feedback")
 
-	for k, v := range categories {
-		f.SetCellValue(sheetName, k, v)
+	var rowNumber int = 6
+	for _, value := range facultyComparionReportRequest.Data {
+		rowNumber++
+		f.SetCellValue(sheetName, fmt.Sprintf("B%d", rowNumber), value.Name)
+		f.SetCellValue(sheetName, fmt.Sprintf("C%d", rowNumber), value.Feedback)
 	}
-	for k, v := range values {
-		f.SetCellValue(sheetName, k, v)
-	}
-	if err := f.AddChart(sheetName, "B10",
-		`{"type":"col",
-	"series":[
-		{"name":"FacultyFeedbackComparison!$C$6","categories":"FacultyFeedbackComparison!$B$7:$B$8","values":"FacultyFeedbackComparison!$C$7:$C$8"}],
-		"format":{"x_scale":1.0,"y_scale":1.0,"x_offset":15,"y_offset":10,"print_obj":true,"lock_aspect_ratio":false,"locked":false},
-		"title":{"name":"Feedback"},
-		"plotarea":{"show_bubble_size":true,"show_cat_name":false,"show_leader_lines":false,"show_percent":true,"show_series_name":false,"show_val":true},
-		"show_blanks_as":"zero"}
-		`); err != nil {
+
+	if err := f.AddChart(sheetName, "A5",
+		fmt.Sprintf(`
+		{
+			"type":"col",
+			"series":[
+				{
+					"name":"FacultyFeedbackComparison!$C$6",
+					"categories":"FacultyFeedbackComparison!$B$7:$B$%d",
+					"values":"FacultyFeedbackComparison!$C$7:$C$%d"
+				}
+			],
+			"format":{
+				"x_scale":1.0,"y_scale":1.0,"x_offset":15,"y_offset":10,"print_obj":true,"lock_aspect_ratio":false,"locked":false
+			},
+			"title":{
+				"name":"Feedback"
+			},
+			"plotarea":{
+				"show_bubble_size":true,"show_cat_name":false,"show_leader_lines":false,"show_percent":true,"show_series_name":false,"show_val":true
+			},
+			"show_blanks_as":"zero"
+		}
+		`, rowNumber, rowNumber)); err != nil {
 		fmt.Println(err)
 	}
 
@@ -88,7 +143,7 @@ func getFacultyFeedbackComparisonReport(c *gin.Context) {
 		return
 	}
 
-	downloadName := "FacultyFeedbackComparison.xlsx"
+	downloadName := "FacultyFeedbackComparison_" + facultyComparionReportRequest.Meta.Department.Code + "_" + facultyComparionReportRequest.Meta.Class.Code + ".xlsx"
 	c.Header("Content-Description", "File Transfer")
 	c.Header("Content-Disposition", "attachment; filename="+downloadName)
 	c.Data(http.StatusOK, "application/octet-stream", b.Bytes())
