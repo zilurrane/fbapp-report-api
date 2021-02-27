@@ -120,7 +120,7 @@ func getFeedback(c *gin.Context) {
 	}
 	db := client.Database("fbapp")
 
-	cursor, err := db.Collection("feedbacks").Find(context.TODO(), bson.M{})
+	cursor, err := db.Collection("feedbacks").Find(context.TODO(), bson.M{"tenantId": bson.M{"$eq": tenantId}})
 
 	if err != nil {
 		log.Printf("Error while getting all feedbacks, Reason: %v\n", err)
@@ -154,11 +154,39 @@ func getFeedback(c *gin.Context) {
 		feedbackParameters = append(feedbackParameters, parameter)
 	}
 
+	facultyCursor, err := db.Collection("faculties").Find(context.TODO(), bson.M{"tenantId": bson.M{"$eq": tenantId}})
+
+	if err != nil {
+		log.Printf("Error while getting all faculties, Reason: %v\n", err)
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"status":  http.StatusInternalServerError,
+			"message": "Something went wrong",
+		})
+		return
+	}
+
+	var faculties = make(map[string]string)
+
+	for facultyCursor.Next(context.TODO()) {
+		var faculty bson.M
+		facultyCursor.Decode(&faculty)
+		faculties[faculty["_id"].(primitive.ObjectID).Hex()] = fmt.Sprintf("%v", faculty["name"])
+	}
+
 	sheetName := "Feedback"
 	f := excelize.NewFile()
 
 	f.SetSheetName("Sheet1", sheetName)
 
+	headerTitleStyle, headerTitleStyleErr := f.NewStyle(`{"font":{"bold": true}}`)
+
+	if headerTitleStyleErr != nil {
+		fmt.Println(headerTitleStyleErr)
+	}
+
+	f.SetCellStyle(sheetName, "A1", "K1", headerTitleStyle)
+
+	f.SetCellValue(sheetName, fmt.Sprintf("A%d", 1), "Sr. No.")
 	f.SetCellValue(sheetName, fmt.Sprintf("B%d", 1), "Faculty")
 	f.SetCellValue(sheetName, fmt.Sprintf("C%d", 1), "Department")
 	f.SetCellValue(sheetName, fmt.Sprintf("D%d", 1), "Class")
@@ -174,7 +202,8 @@ func getFeedback(c *gin.Context) {
 		var feedback Feedback
 		cursor.Decode(&feedback)
 		feedbackIndex += 1
-		f.SetCellValue(sheetName, fmt.Sprintf("B%d", feedbackIndex), feedback.Faculty)
+		f.SetCellValue(sheetName, fmt.Sprintf("A%d", feedbackIndex), feedbackIndex-1)
+		f.SetCellValue(sheetName, fmt.Sprintf("B%d", feedbackIndex), faculties[feedback.Faculty])
 		f.SetCellValue(sheetName, fmt.Sprintf("C%d", feedbackIndex), feedback.DepartmentCode)
 		f.SetCellValue(sheetName, fmt.Sprintf("D%d", feedbackIndex), feedback.ClassCode)
 		f.SetCellValue(sheetName, fmt.Sprintf("E%d", feedbackIndex), feedback.CreatedDate)
