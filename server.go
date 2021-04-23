@@ -153,20 +153,16 @@ func getFeedback(c *gin.Context) {
 	var feedbackFilter bson.M
 
 	if departmentCode != "" && classCode != "" {
-		feedbackFilter = bson.M{
-			"$and": bson.M{
+		feedbackFilter =  bson.M{
 				"tenantId":       bson.M{"$eq": tenantId},
 				"departmentCode": bson.M{"$eq": departmentCode},
 				"classCode":      bson.M{"$eq": classCode},
-			},
-		}
+			}
 	} else if departmentCode != "" {
 		feedbackFilter = bson.M{
-			"$and": bson.M{
-				"tenantId":       bson.M{"$eq": tenantId},
-				"departmentCode": bson.M{"$eq": departmentCode},
-			},
-		}
+					"tenantId":       bson.M{"$eq": tenantId},
+					"departmentCode": bson.M{"$eq": departmentCode},
+				}
 	} else {
 		feedbackFilter = bson.M{"tenantId": bson.M{"$eq": tenantId}}
 	}
