@@ -20,6 +20,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 	"go.mongodb.org/mongo-driver/mongo/readpref"
+	"github.com/spf13/viper"
 )
 
 // Department Department
@@ -67,6 +68,27 @@ type FeedbackParameter struct {
 	Code string             `json:"code"`
 }
 
+type Config struct {
+    DBURI      string `mapstructure:"DB_URI"`
+}
+
+// LoadConfig reads configuration from file or environment variables.
+func LoadConfig(path string) (config Config, err error) {
+    viper.AddConfigPath(path)
+    viper.SetConfigName("app")
+    viper.SetConfigType("env")
+
+    viper.AutomaticEnv()
+
+    err = viper.ReadInConfig()
+    if err != nil {
+        return
+    }
+
+    err = viper.Unmarshal(&config)
+    return
+}
+
 func main() {
 	r := gin.Default()
 
@@ -102,7 +124,15 @@ func getFeedback(c *gin.Context) {
 
 	tenantId := c.Request.Header.Get("TenantId")
 
-	clientOptions := options.Client().ApplyURI("mongodb+srv://adminbhau:adminbhau@cluster0.nokmu.mongodb.net")
+	departmentCode := c.Request.URL.Query().Get("department")
+	classCode := c.Request.URL.Query().Get("class")
+
+	config, err := LoadConfig(".")
+    if err != nil {
+        log.Fatal("cannot load config:", err)
+    }
+
+	clientOptions := options.Client().ApplyURI(config.DBURI)
 	client, err := mongo.NewClient(clientOptions)
 
 	//Set up a context required by mongo.Connect
@@ -120,7 +150,28 @@ func getFeedback(c *gin.Context) {
 	}
 	db := client.Database("fbapp")
 
-	cursor, err := db.Collection("feedbacks").Find(context.TODO(), bson.M{"tenantId": bson.M{"$eq": tenantId}})
+	var feedbackFilter bson.M
+
+	if departmentCode != "" && classCode != "" {
+		feedbackFilter = bson.M{
+			"$and": bson.M{
+				"tenantId":       bson.M{"$eq": tenantId},
+				"departmentCode": bson.M{"$eq": departmentCode},
+				"classCode":      bson.M{"$eq": classCode},
+			},
+		}
+	} else if departmentCode != "" {
+		feedbackFilter = bson.M{
+			"$and": bson.M{
+				"tenantId":       bson.M{"$eq": tenantId},
+				"departmentCode": bson.M{"$eq": departmentCode},
+			},
+		}
+	} else {
+		feedbackFilter = bson.M{"tenantId": bson.M{"$eq": tenantId}}
+	}
+
+	cursor, err := db.Collection("feedbacks").Find(context.TODO(), feedbackFilter)
 
 	if err != nil {
 		log.Printf("Error while getting all feedbacks, Reason: %v\n", err)
@@ -178,13 +229,15 @@ func getFeedback(c *gin.Context) {
 
 	f.SetSheetName("Sheet1", sheetName)
 
-	headerTitleStyle, headerTitleStyleErr := f.NewStyle(`{"font":{"bold": true}}`)
+	headerTitleStyle, headerTitleStyleErr := f.NewStyle(`{"font":{"bold": true}, "fill":{"type":"pattern","color":["#E0EBF5"],"pattern":1}}`)
 
 	if headerTitleStyleErr != nil {
 		fmt.Println(headerTitleStyleErr)
 	}
 
 	f.SetCellStyle(sheetName, "A1", "K1", headerTitleStyle)
+
+	f.SetColWidth(sheetName, "A", "K", 15)
 
 	f.SetCellValue(sheetName, fmt.Sprintf("A%d", 1), "Sr. No.")
 	f.SetCellValue(sheetName, fmt.Sprintf("B%d", 1), "Faculty")
